@@ -19,7 +19,7 @@ app.use(express.urlencoded({ extended: true })); // ⭐ REQUIRED FOR MULTER
 
 // ✅ Health check
 app.get("/", (req, res) => {
-  res.send("PrintoXer Backend is running 🚀");
+  res.send("PrintoXer Backend is running 🚀 new");
 });
 
 // Routes
@@ -30,3 +30,4 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on ${PORT}`);
 });
+
