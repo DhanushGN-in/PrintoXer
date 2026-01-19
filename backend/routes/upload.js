@@ -5,24 +5,29 @@ const File = require("../models/File");
 const router = express.Router();
 
 /**
- * Multer configuration
- * - memoryStorage: best for cloud (Render)
- * - size limit: 10MB
- * - PDF only
+ * Multer configuration (DEBUG MODE)
  */
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
   fileFilter: (req, file, cb) => {
+    console.log("📄 Incoming file:", {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size
+    });
+
     if (file.mimetype !== "application/pdf") {
+      console.error("❌ Rejected file type:", file.mimetype);
       return cb(new Error("Only PDF files are allowed"));
     }
+
     cb(null, true);
   }
 });
 
 /**
- * Generate 6-digit unique print code
+ * Generate 6-digit code
  */
 function generateCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -30,15 +35,21 @@ function generateCode() {
 
 router.post("/", upload.single("pdf"), async (req, res) => {
   try {
-    // 🔴 Validate file
+    console.log("🚀 ===== /upload HIT =====");
+    console.log("Headers:", req.headers);
+    console.log("Body:", req.body);
+    console.log("File received:", req.file);
+
+    // ❌ File missing
     if (!req.file) {
+      console.error("❌ req.file is UNDEFINED");
       return res.status(400).json({
         success: false,
         message: "No PDF file uploaded"
       });
     }
 
-    // 🌐 Get client IP safely (Render compatible)
+    // 🌐 Client IP
     const ip =
       (req.headers["x-forwarded-for"] || "")
         .toString()
@@ -47,7 +58,9 @@ router.post("/", upload.single("pdf"), async (req, res) => {
       req.socket.remoteAddress ||
       "unknown";
 
-    // 🔐 Ensure unique print code
+    console.log("🌐 Client IP:", ip);
+
+    // 🔐 Unique code generation (DEBUG: skip DB first if needed)
     let code;
     let exists = true;
 
@@ -56,7 +69,9 @@ router.post("/", upload.single("pdf"), async (req, res) => {
       exists = await File.exists({ code });
     }
 
-    // 🗄 Save metadata (PDF buffer can be stored later)
+    console.log("🔑 Generated unique code:", code);
+
+    // 🧪 TEMP: comment DB save if needed
     const newFile = new File({
       code,
       ipAddress: ip,
@@ -64,12 +79,11 @@ router.post("/", upload.single("pdf"), async (req, res) => {
       size: req.file.size,
       mimeType: req.file.mimetype,
       createdAt: new Date()
-      // pdfBuffer: req.file.buffer  ← store later in Firebase/S3
     });
 
     await newFile.save();
+    console.log("💾 Saved to MongoDB");
 
-    // ✅ Success response (frontend expects this)
     return res.json({
       success: true,
       code,
@@ -77,7 +91,7 @@ router.post("/", upload.single("pdf"), async (req, res) => {
     });
 
   } catch (err) {
-    console.error("Upload error:", err);
+    console.error("🔥 UPLOAD CRASH:", err);
 
     return res.status(500).json({
       success: false,
